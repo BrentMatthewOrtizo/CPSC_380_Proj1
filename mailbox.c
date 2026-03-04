@@ -13,6 +13,14 @@ void mailbox_init(mailbox_t *mbox){
         }
 
 }
+
+int close_mailbox(mailbox_t *mbox){
+        if (mbox == NULL) {
+                return MBOX_ERR_INVALID;
+        }
+        // No dynamic resources to free in this implementation
+        return MBOX_SUCCESS;
+}
 /*
         * Asynchronous send.
         *
