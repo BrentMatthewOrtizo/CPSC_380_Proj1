@@ -1,15 +1,25 @@
 #ifndef MAILBOX_H
 #define MAILBOX_H
+#include <errno.h>
+#include <fcntl.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/shm.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/types.h>
 
 /*
-* Asynchronous Shared-Memory Mailbox
-*
-* This mailbox supports indirect IPC between exactly:
-* - One sender process
-* - One receiver process
-*
+        * Asynchronous Shared-Memory Mailbox
+        *
+        * This mailbox supports indirect IPC between exactly:
+        * - One sender process
+        * - One receiver process
+        *
 */
 
 /* ---------------- Configuration Constants ---------------- */
