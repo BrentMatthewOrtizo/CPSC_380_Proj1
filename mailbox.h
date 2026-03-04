@@ -70,6 +70,7 @@ typedef struct {
         * Must be called exactly once before fork().
 */
 void mailbox_init(mailbox_t *mbox);
+int close_mailbox(mailbox_t *mbox);
 
 /*
         * Asynchronous send.
