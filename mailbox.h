@@ -23,10 +23,12 @@
 */
 
 /* ---------------- Configuration Constants ---------------- */
-#define MAILBOX_CAPACITY 8 /* maximum number of messages */
-#define MAILBOX_MAX_MSG 64 /* maximum bytes per message */
+
+#define MAILBOX_CAPACITY 8                             /* maximum number of messages */
+#define MAILBOX_MAX_MSG 64                             /* maximum bytes per message */
 
 /* ---------------- Return Codes ---------------- */
+
 #define MBOX_SUCCESS 0
 #define MBOX_ERR_INVALID -1
 #define MBOX_ERR_FULL -2
@@ -37,61 +39,64 @@
 /*
 * Each slot holds one message.
 */
+
 typedef struct {
-size_t len; /* length of valid data */
-uint8_t data[MAILBOX_MAX_MSG]; /* message contents */
+    size_t len;                                         /* length of valid data */
+    uint8_t data[MAILBOX_MAX_MSG];                      /* message contents */
 } mailbox_slot_t;
 
 /* ---------------- Mailbox Structure ---------------- */
 /*
-* This structure must reside in shared memory.
-*
-* Students are responsible for correctly managing:
-* - head index
-* - tail index
-* - FIFO behavior
-*
-* Only ONE process may call send().
-* Only ONE process may call receive().
+        * This structure must reside in shared memory.
+        *
+        * Students are responsible for correctly managing:
+        * - head index
+        * - tail index
+        * - FIFO behavior
+        *
+        * Only ONE process may call send().
+        * Only ONE process may call receive().
 */
+
 typedef struct {
-int head; /* index of next message to read */
-int tail; /* index of next slot to write */
-mailbox_slot_t slots[MAILBOX_CAPACITY];
+        int head;                                     /* index of next message to read */
+        int tail;                                     /* index of next slot to write */
+        mailbox_slot_t slots[MAILBOX_CAPACITY];
 } mailbox_t;
+
 /* ---------------- API Functions ---------------- */
 /*
-* Initialize a mailbox structure.
-* Must be called exactly once before fork().
+        * Initialize a mailbox structure.
+        * Must be called exactly once before fork().
 */
 void mailbox_init(mailbox_t *mbox);
+
 /*
-* Asynchronous send.
-*
-* Returns:
-* MBOX_SUCCESS on success
-* MBOX_ERR_FULL if mailbox is full
-* MBOX_ERR_TOO_LARGE if len > MAILBOX_MAX_MSG
-* MBOX_ERR_INVALID on invalid arguments
+        * Asynchronous send.
+        *
+        * Returns:
+        * MBOX_SUCCESS on success
+        * MBOX_ERR_FULL if mailbox is full
+        * MBOX_ERR_TOO_LARGE if len > MAILBOX_MAX_MSG
+        * MBOX_ERR_INVALID on invalid arguments
 */
+
 int send_mailbox(mailbox_t *mbox,
-const void *msg,
-size_t len);
+                    const void *msg, size_t len);
 /*
-* Asynchronous receive.
-*
-* Copies at most maxlen bytes into out_buf.
-*
-* On success:
-* - returns MBOX_SUCCESS
-* - writes actual message length to *out_len
-*
-* Returns:
-* MBOX_ERR_EMPTY if mailbox is empty
-* MBOX_ERR_INVALID on invalid arguments
+        * Asynchronous receive.
+        *
+        * Copies at most maxlen bytes into out_buf.
+        *
+        * On success:
+        * - returns MBOX_SUCCESS
+        * - writes actual message length to *out_len
+        *
+        * Returns:
+        * MBOX_ERR_EMPTY if mailbox is empty
+        * MBOX_ERR_INVALID on invalid arguments
 */
-int receive_mailbox(mailbox_t *mbox,
-void *out_buf,
-size_t maxlen,
-size_t *out_len);
+
+int receive_mailbox(mailbox_t *mbox, void *out_buf,
+                        size_t maxlen, size_t *out_len);
 #endif /* MAILBOX_H */
