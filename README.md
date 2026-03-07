@@ -6,6 +6,10 @@
 - Student ID: 2461327
 - Email: [binitie@chapman.edu](mailto:binitie@chapman.edu)
 
+- Name: Brent Matthew Ortizo
+- Student ID: 2452997
+- Email: [ortizo@chapman.edu](mailto:ortizo@chapman.edu)
+
 ## Description
 
 This repository contains the implementation for an asynchronous mailbox.
