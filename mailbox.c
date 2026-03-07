@@ -1,4 +1,5 @@
-// mailbox.c - Implementation of the mailbox functions for inter-process communication
+// Brent Ortizo and Kayode Binite
+
 #include "mailbox.h"
 #include <string.h>
 
@@ -44,45 +45,30 @@ int send_mailbox(mailbox_t *mbox, const void *msg, size_t len)
     return MBOX_SUCCESS;
 }
 
-// Receives a message from the mailbox. Returns 0 on success or a negative error code.
-int receive_mailbox(mailbox_t *mbox, void *out_buf, size_t maxlen, size_t *out_len)
-{
-    // Validate arguments:
-    if (mbox == NULL || out_buf == NULL || out_len == NULL)
-        return MBOX_ERR_INVALID;
+int receive_mailbox(mailbox_t *mbox, void *out_buf, size_t maxlen, size_t *out_len) {
+    if (mbox == NULL || out_buf == NULL || out_len == NULL) {
+        return MBOX_ERR_INVALID; // -1
+    }
 
-    if (mbox->head == mbox->tail)
-        return MBOX_ERR_EMPTY;
+    if (mbox->head == mbox->tail) {
+        return MBOX_ERR_EMPTY; // -3
+    }
 
-    // Read the message from the current head slot:
     mailbox_slot_t *slot = &mbox->slots[mbox->head];
 
-    // Copy the message data into the output buffer (up to maxlen) and set the output length:
-    size_t copy_len = (slot->len < maxlen) ? slot->len : maxlen;
+    size_t copy_len = slot->len;
+
+    if (copy_len > maxlen) {
+        copy_len = maxlen;
+    }
 
     memcpy(out_buf, slot->data, copy_len);
 
     *out_len = slot->len;
 
-    // Update the head index to the next slot:
     mbox->head = (mbox->head + 1) % MAILBOX_CAPACITY;
 
-    return MBOX_SUCCESS;
+    return MBOX_SUCCESS; // 0
 }
 
-// Unmaps the mailbox from shared memory. Returns 0 on success or a negative error code.
-// Only the parent process should call this function after the child has finished using the mailbox.
-int close_mailbox(mailbox_t *mbox)
-{
-    // Validate the mailbox pointer:
-    if (mbox == NULL)
-        return MBOX_ERR_INVALID;
 
-    // Unmap the mailbox from shared memory:
-    if (munmap(mbox, sizeof(mailbox_t)) == -1) {
-        perror("munmap");
-        return MBOX_ERR_INVALID;
-    }
-
-    return MBOX_SUCCESS;
-}

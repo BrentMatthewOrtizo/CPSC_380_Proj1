@@ -1,86 +1,116 @@
-// mboxtest.c - Test program for the mailbox implementation
+// Brent Ortizo and Kayode Binite
+
 #include "mailbox.h"
 #include <sys/wait.h>
 
-int main(int argc, char *argv[])
-{
-    // Validate command-line arguments:
-    if (argc > 2) {
-        printf("Usage: %s [num_messages]\n", argv[0]);
-        return 1;
+#define SHM_NAME "/mailbox"
+
+int main(int argc, char *argv[]) {
+
+    int fd;
+    int count;
+    mailbox_t *mbox;
+    pid_t pid;
+
+    // program expects number of messages to send/receive
+    if (argc != 2) {
+        printf("Usage: %s <num_messages>\n", argv[0]);
+        return -1;
     }
 
-    // Default to 10 messages if not specified:
-    int num_messages = (argc == 2) ? atoi(argv[1]) : 10;
+    count = atoi(argv[1]);
 
-    // Create shared mailbox:
-    mailbox_t *mbox = mmap(NULL,
-                           sizeof(mailbox_t),
-                           PROT_READ | PROT_WRITE,
-                           MAP_SHARED | MAP_ANONYMOUS,
-                           -1,
-                           0);
+    if (count <= 0) {
+        printf("Number of messages must be positive\n");
+        return -1;
+    }
 
-    // Check for mmap failure:
+    // create/open POSIX shared memory object
+    fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+    if (fd == -1) {
+        perror("shm_open");
+        return -1;
+    }
+
+    // set size of shared memory region
+    if (ftruncate(fd, sizeof(mailbox_t)) == -1) {
+        perror("ftruncate");
+        return -1;
+    }
+
+    // map shared memory into process address space
+    mbox = mmap(NULL, sizeof(mailbox_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mbox == MAP_FAILED) {
         perror("mmap");
-        exit(1);
+        return -1;
     }
 
-    // Initialize mailbox:
+    // file descriptor no longer needed after mmap
+    close(fd);
+
+    // initialize mailbox before fork
     mailbox_init(mbox);
 
-    // Start asynchronous sender and receiver processes:
-    pid_t pid = fork();
-
-    // Check for fork failure:
+    pid = fork();
     if (pid < 0) {
         perror("fork");
-        exit(1);
+        return -1;
     }
 
-    /* CHILD: sender */
+    // CHILD = receiver
     if (pid == 0) {
 
-        // Send the user-specified number of messages:
-        for (int i = 0; i < num_messages; i++) {
+        char buffer[MAILBOX_MAX_MSG + 1];
+        size_t len;
+        int received = 0;
+        int ret;
 
-            char msg[MAILBOX_MAX_MSG];
-            sprintf(msg, "Message %d", i + 1);
+        while (received < count) {
 
-            // Keep trying to send until successful (handle full mailbox):
-            while (send_mailbox(mbox, msg, strlen(msg)) == MBOX_ERR_FULL);
+            ret = receive_mailbox(mbox, buffer, MAILBOX_MAX_MSG, &len);
 
+            if (ret == MBOX_SUCCESS) {
+                printf("Received: %s\n", buffer);
+                received++;
+            }
+
+            else if (ret == MBOX_ERR_EMPTY) {
+                printf("Mailbox empty\n");
+                usleep(100000);
+            }
         }
 
-        exit(0);
+        munmap(mbox, sizeof(mailbox_t));
     }
 
-    /* PARENT: receiver */
+    // PARENT = sender
     else {
 
-        // Receive the expected number of messages:
-        for (int i = 0; i < num_messages; i++) {
+        char msg[MAILBOX_MAX_MSG];
+        int sent = 0;
+        int ret;
 
-            char buffer[MAILBOX_MAX_MSG];
-            size_t len;
+        while (sent < count) {
 
-            // Keep trying to receive until successful (handle empty mailbox):
-            while (receive_mailbox(mbox, buffer, sizeof(buffer), &len) == MBOX_ERR_EMPTY);
+            sprintf(msg, "Message %d", sent);
 
-            // Null-terminate the received message for printing:
-            buffer[len] = '\0';
+            ret = send_mailbox(mbox, msg, strlen(msg) + 1);
 
-            // Print the received message:
-            printf("Received: %s\n", buffer);
+            if (ret == MBOX_SUCCESS) {
+                printf("Sent: %s\n", msg);
+                sent++;
+            }
+
+            else if (ret == MBOX_ERR_FULL) {
+                printf("Mailbox full\n");
+                usleep(100000);
+            }
         }
 
-        // Wait for sender to finish and clean up:
         wait(NULL);
 
-        // Unmap the shared mailbox:
-        close_mailbox(mbox);
+        munmap(mbox, sizeof(mailbox_t));
+        shm_unlink(SHM_NAME);
     }
-
     return 0;
 }
