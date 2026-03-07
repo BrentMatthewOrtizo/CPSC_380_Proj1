@@ -7,11 +7,12 @@
 void mailbox_init(mailbox_t *mbox)
 {
     // Validate the mailbox pointer:
-    if (mbox == NULL) {
-        fprintf(stderr, "Invalid mailbox\n");
-        exit(1);
-    }
+    void mailbox_init(mailbox_t *mbox)
 
+    if (mbox == NULL) {
+        return;
+    }
+    
     // Initialize head and tail indices to 0:
     mbox->head = 0;
     mbox->tail = 0;
