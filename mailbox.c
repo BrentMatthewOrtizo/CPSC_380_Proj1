@@ -7,7 +7,6 @@
 void mailbox_init(mailbox_t *mbox)
 {
     // Validate the mailbox pointer:
-    void mailbox_init(mailbox_t *mbox)
 
     if (mbox == NULL) {
         return;
