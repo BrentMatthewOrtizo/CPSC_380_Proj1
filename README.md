@@ -17,15 +17,16 @@ This project implements an asynchronous mailbox using POSIX shared memory to sup
 ---
 
 ## Design Approach
-The mailbox is stored in POSIX shared memory. Shared memory is created using `shm_open()`, sized using `ftruncate()`, and mapped into the process address space using `mmap()`.
+The mailbox structure resides in POSIX shared memory. Shared memory is created using `shm_open()`, sized using `ftruncate()`, and mapped into the process address space using `mmap()`.
 
-After calling `mailbox_init()`, the program uses `fork()` to create two processes:
-- The **parent process acts as the sender**
-- The **child process acts as the receiver**
+After initializing the mailbox with `mailbox_init()`, the program calls `fork()` to create two processes:
+- the **parent process acts as the sender**
+- the **child process acts as the receiver**
 
-The sender repeatedly calls `send_mailbox()` to place messages into the mailbox, while the receiver calls `receive_mailbox()` to retrieve them. Both functions are asynchronous and return immediately with a status code.
+The sender repeatedly calls `send_mailbox()` to place messages into the mailbox, while the receiver repeatedly calls `receive_mailbox()` to retrieve them. Both operations are asynchronous and return immediately with a status code.
 
-The mailbox is implemented as a circular buffer using two indices:
+The mailbox is implemented as a circular FIFO buffer using two indices:
+
 - `head` – index of the next message to read  
 - `tail` – index of the next slot to write  
 
@@ -47,16 +48,15 @@ Mailbox **full condition**
 (tail + 1) % MAILBOX_CAPACITY == head
 ```
 
-One slot is intentionally left unused so the implementation can distinguish between full and empty states. With a capacity of 8 slots, the mailbox can store up to 7 messages at once.
+One slot in the circular buffer is intentionally left unused so the program can distinguish between full and empty states. With a capacity of 8 slots, the mailbox can store up to **7 messages at a time**.
 
 ---
 
 ## Assumptions
-- Exactly **one sender process and one receiver process** are used.
+- Exactly **one sender process and one receiver process** are used as specified in the assignment.
 - Because only one process writes and one reads, additional synchronization mechanisms such as mutexes or semaphores are not required.
-- If the mailbox becomes full or empty, the test program briefly waits using `usleep()` before retrying to avoid busy waiting.
-- The header file includes a declaration for `close_mailbox()`. This function was not implemented because cleanup is handled in the test program using `munmap()` and `shm_unlink()`.
-- Termination behavior was clarified when Kayode Binitie contacted the professor. The program terminates after sending and receiving a fixed number of messages provided via the command line.
+- If the mailbox becomes full or empty, the test program waits briefly using `usleep()` before retrying the operation to avoid busy waiting while maintaining asynchronous behavior.
+- The program terminates after sending and receiving a fixed number of messages specified as a command-line argument. Mailbox slots are reused through the circular buffer implementation.
 
 ---
 
@@ -87,7 +87,7 @@ This project was developed collaboratively using **GitHub** for version control.
 
 Kayode Binitie contacted the professor via email to clarify termination behavior and bounded buffer semantics.
 
-The **man7 Linux manual pages** were used as references for POSIX system calls such as:
+The **man7 Linux manual pages** were used as references for POSIX system calls including:
 - `shm_open()`
 - `mmap()`
 - `fork()`
