@@ -1,49 +1,111 @@
+// Brent Ortizo and Kayode Binitie
+
 #include "mailbox.h"
 
-int main(){
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
 
-	pid_t pid;
+#define SHM_NAME "/mailbox"
 
-    mailbox_t mbox;
+int main(int argc, char *argv[])
+{
+    int fd;
+    int count;
+    mailbox_t *mbox;
+    pid_t pid;
 
-    // Create the mailbox:
-    mailbox_init(&mbox);
-
-    // Create asynchronous processes to send 
-    // and recieve messages
-	pid = fork();
-	
-    // Print error message if fork failed:
-    if(pid == -1){ 
-        fprintf(stderr, "%s%d\n%s%s\n", "Error number: ", 
-                errno, "Error Message: ", strerror(errno)); 
+    if (argc != 2) {
+        printf("Usage: %s <num_messages>\n", argv[0]);
+        return -1;
     }
 
-    // Child process: 
-    else if (pid == 0) { 
-        // Keep sending messages until an error occurs
-        while(1)
-            if( send_mailbox(&mbox, "LaLaLa", strlen("LaLaLa")) != MBOX_SUCCESS) {
-                printf("Error writing to mailbox");
-                close_mailbox(&mbox);
-                return 1;
-            };
-        close_mailbox(&mbox);
-		return 0;
-	}
+    count = atoi(argv[1]);
 
-    // Parent process:
-	else if (pid > 0) {
+    if (count <= 0) {
+        printf("Number of messages must be positive\n");
+        return -1;
+    }
 
-        while(1)
-            // Keep receiving messages until an error occurs:
-            if(receive_mailbox(&mbox, NULL, 0, NULL) != MBOX_SUCCESS) {
-                printf("Error writing to mailbox");
-            close_mailbox(&mbox);
-            return 1; 
-        };
-        close_mailbox(&mbox);
-		return 0;
-	}
+    fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+    if (fd == -1) {
+        perror("shm_open");
+        return -1;
+    }
 
+    if (ftruncate(fd, sizeof(mailbox_t)) == -1) {
+        perror("ftruncate");
+        return -1;
+    }
+
+    mbox = mmap(NULL, sizeof(mailbox_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mbox == MAP_FAILED) {
+        perror("mmap");
+        return -1;
+    }
+
+    close(fd);
+
+    mailbox_init(mbox);
+
+    pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        return -1;
+    }
+
+    if (pid == 0) {
+        char buffer[MAILBOX_MAX_MSG + 1];
+        size_t len;
+        int received = 0;
+        int ret;
+
+        while (received < count) {
+            ret = receive_mailbox(mbox, buffer, MAILBOX_MAX_MSG, &len);
+
+            if (ret == MBOX_SUCCESS) {
+                printf("Received: %s\n", buffer);
+                received++;
+            }
+            else if (ret == MBOX_ERR_EMPTY) {
+                printf("Mailbox empty\n");
+                usleep(100000);
+            }
+        }
+
+        munmap(mbox, sizeof(mailbox_t));
+    }
+    else {
+        char msg[MAILBOX_MAX_MSG];
+        int sent = 0;
+        int ret;
+
+        while (sent < count) {
+            sprintf(msg, "Message %d", sent);
+
+            ret = send_mailbox(mbox, msg, strlen(msg) + 1);
+
+            if (ret == MBOX_SUCCESS) {
+                printf("Sent: %s\n", msg);
+                sent++;
+            }
+            else if (ret == MBOX_ERR_FULL) {
+                printf("Mailbox full\n");
+                usleep(100000);
+            }
+        }
+
+        wait(NULL);
+
+        munmap(mbox, sizeof(mailbox_t));
+        shm_unlink(SHM_NAME);
+    }
+
+    return 0;
 }
